@@ -169,12 +169,12 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     print(f_Hour)
 
     #Obtains variables from the wrfout file
-    #for testing purposes, we are only using the first timeindex
     raw_pressure = getvar(data, "pressure", timeidx = timestep)
     raw_temperatrue = getvar(data, "tc", timeidx = timestep)
     raw_dewpoint = getvar(data, "td", timeidx = timestep)
     raw_Xcomponent_windspeed = getvar(data, "ua", timeidx = timestep)
     raw_Ycomponent_winderspeed = getvar(data, "va", timeidx = timestep)
+    raw_height = getvar(data, "z",timeidx = timestep)
 
     #What exactly does ":, x_y[0], x_y[1]" mean? 
     #Extract data (w.r.t to height) at a particular location + specifiy units 
@@ -183,6 +183,7 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     raw_dewpoint = raw_dewpoint[:, x_y[0], x_y[1]] * units.degC
     raw_Xcomponent_windspeed = raw_Xcomponent_windspeed[:, x_y[0], x_y[1]] * units.knots
     raw_Ycomponent_winderspeed = raw_Ycomponent_winderspeed[:, x_y[0], x_y[1]] * units.knots
+    raw_height = raw_height[:, x_y[0], x_y[1]] * units.meters
 
     #Reassigns the data into a unit array
     raw_pressure = raw_pressure.metpy.unit_array
@@ -190,9 +191,10 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     raw_dewpoint = raw_dewpoint.metpy.unit_array
     raw_Xcomponent_windspeed = raw_Xcomponent_windspeed.metpy.unit_array
     raw_Ycomponent_winderspeed = raw_Ycomponent_winderspeed.metpy.unit_array
+    raw_height = raw_height.metpy.unit_array
 
     
-    fig = plt.figure(figsize=(18, 10)) #Create a fig with certain size
+    fig = plt.figure(figsize=(18, 12)) #Create a fig with certain size
     skew = SkewT(fig, rect=(0.05, 0.05, 0.50, 0.90)) #Create skewT with that fig and set the skewT bounds
 
     #Axises limits
@@ -235,19 +237,100 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     #LFC will return nan if there is no LFC, from a meteologoical stand point
     #Marker: shape that will indicate the LCL/LFC, color: circle outline color
     #Markerfacecolor: color of inside the shape, in this case circle
-    skew.plot(lfc_p, lfc_t,marker="o", color="k", markerfacecolor="k", label="lfc")
+    skew.plot(lfc_p, lfc_t, marker="o", color="k", markerfacecolor="k", label="lfc")
     skew.plot(lcl_p, lcl_t, "ko", markerfacecolor="white", label="lcl")
 
     #Calculate and plot parcel path, need to convert to C!
     parcel_path = mpcalc.parcel_profile(raw_pressure, raw_temperatrue[0], raw_dewpoint[0]).to('degC')
     skew.plot(raw_pressure, parcel_path, color="black", lw=2, label="Parcel path") #ls: linestyle, "--": dotted
 
-
-    cape = mpcalc.cape_cin(raw_pressure, raw_temperatrue, raw_dewpoint, parcel_path, "bottom", "bottom")
+    #Calculate cape then shade the cape/cin regions
     skew.shade_cin(raw_pressure, raw_temperatrue, parcel_path, raw_dewpoint, alpha = 0.2)
     skew.shade_cape(raw_pressure, raw_temperatrue, parcel_path, alpha = 0.2)
+
+    #Plotting a hodograph; rect tuple defines the shape and position on fig
+    hodo_ax = plt.axes((0.48, 0.45, 0.5, 0.5))
+    #compnent_range = tells you the range, in this case [-80kts to 80kts]
+    hodo = Hodograph(hodo_ax, component_range=80) 
+
+    #Adds polar grids (circles) on the hodo
+    hodo.add_grid(increment=20, ls="-", lw=1.5, alpha=0.5) #Darker circles every 20kts
+    hodo.add_grid(increment=10, ls="--", lw=1, alpha=0.3) #lighter cirlles every 10kts
+
+    hodo.ax.set_box_aspect(1) #Set height to width ratio of the hodograph box
+    #Remove any ticks along the y and x axis
+    hodo.ax.set_yticklabels([])
+    hodo.ax.set_xticklabels([])
+    hodo.ax.set_xticks([])
+    hodo.ax.set_yticks([])
+    #Remove any labels alon the x and y axis
+    hodo.ax.set_xlabel(" ")
+    hodo.ax.set_ylabel(" ")
     
-    #Temproary for testing, but stores SkewT images in the runs folder
+    plt.xticks((np.arange(0, 0, 1)))
+    plt.yticks((np.arange(0, 0, 1)))
+
+    #Plots the scale on the x and y axis
+    for i in range(10, 90, 10):
+        #Adds scale to x axis (i,0); xytest/textcoords offsets the labels up by just a little to make it look nicer
+        #clip_on removes any labels that go outside the hodograph fig
+        hodo.ax.annotate(str(i), (i, 0), xytext=(0,2), textcoords="offset pixels", clip_on=True, 
+                         fontsize=10, weight="bold", alpha=0.3)
+        #Label y axis
+        hodo.ax.annotate(str(i), (0, i), xytext=(2,0), textcoords="offset pixels", clip_on=True, 
+                         fontsize=10, weight="bold", alpha=0.3)
+
+    #plot u and v components on the hodo; third paramter, pressure, is needed to determine the color intervals
+    hodo.plot_colormapped(raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, raw_pressure, lw=3, label="0-12KM WIND")
+
+    #Calculate the right mover, left mover, and mean wind vectors
+    RM, LM, MW = mpcalc.bunkers_storm_motion(raw_pressure, raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, raw_height)
+
+    #Plots RM, LW, and MW on the hodo
+    #Add 0.5 to each coord since the text covers up the actual point, will add a dot at each actual coord to make it clear
+    #Why the ".m"?
+    hodo.ax.text((RM[0].m + 0.5), (RM[1].m + 0.5), "RM", weight="bold", ha="left", fontsize=10, alpha=0.6, color="red")
+    hodo.ax.text((LM[0].m + 0.5), (LM[1].m + 0.5), "LM", weight="bold", ha="left", fontsize=10, alpha=0.6, color="blue")
+    hodo.ax.text((MW[0].m + 0.5), (LM[1].m + 0.5), "MW", weight="bold", ha="left", fontsize=10, alpha=0.6, color="black")
+
+
+    #plots RM, LM, MW as a point in the hodo
+    #Since hodo.plot takes in an array of values you cannot actually plot one point
+    #So you add a little bit to each vector to create an array
+    #Instead of a point, you are plotting a very small line segmen
+    RMx = [RM[0].m, RM[0].m + 0.1]
+    RMy = [RM[1].m, RM[1].m + 0.1]
+    hodo.plot(RMx, RMy, color="red")
+
+    #Left mover
+    LMx = [LM[0].m, LM[0].m + 0.1]
+    LMy = [LM[1].m, LM[1].m + 0.1]
+    hodo.plot(LMx, LMy, color="blue")
+
+    #Mean wind
+    MWx = [MW[0].m, MW[0].m + 0.1]
+    MWy = [MW[1].m, MW[1].m + 0.1]
+    hodo.plot(MWx, MWy, color="black")    
+
+    #Creates a rectangle (anchor point, width, height, ect..)
+    #Transform=fig.transFigure indicates that the measurements are relative to fig dimensions
+    #patches.extend adds the new rectangle to the list of shapes on the fig
+    fig.patches.extend([plt.Rectangle((0.562, 0.05), 0.334, 0.37, edgecolor="black", facecolor="white", 
+                                      linewidth=1, alpha=1, transform=fig.transFigure, figure=fig)])
+    
+    kindex = mpcalc.k_index(raw_pressure, raw_temperatrue, raw_dewpoint)
+    totals_totals = mpcalc.total_totals_index(raw_pressure, raw_temperatrue, raw_dewpoint)
+
+    mlcape, mlcin = mpcalc.mixed_layer_cape_cin(raw_pressure, raw_temperatrue, raw_dewpoint, depth=50 * units.hPa)
+    mucape, mucin = mpcalc.most_unstable_cape_cin(raw_pressure, raw_temperatrue, raw_dewpoint, depth=50 * units.hPa)
+    
+
+
+
+
+    
+
+    #Temp for testing, but stores SkewT images in the runs folder
     file_name = f"{airport}_{f_Hour}.png"
     print(file_name)
     #Replace ":" since windows doesnt support that character in file naming
