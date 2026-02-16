@@ -195,11 +195,11 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
 
     
     fig = plt.figure(figsize=(18, 12)) #Create a fig with certain size
-    skew = SkewT(fig, rect=(0.05, 0.05, 0.50, 0.90)) #Create skewT with that fig and set the skewT bounds
+    skew = SkewT(fig, rect=(0.05, 0.05, 0.5, 0.90)) #Create skewT with that fig and set the skewT bounds
 
     #Axises limits
     skew.ax.set_ylim(1000, 100) 
-    skew.ax.set_xlim(-30, 30)
+    skew.ax.set_xlim(-30, 45)
 
     #Label axis
     skew.ax.set_xlabel(str.upper("Temperature (°C)"), weight="bold")
@@ -239,6 +239,17 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     #Markerfacecolor: color of inside the shape, in this case circle
     skew.plot(lfc_p, lfc_t, marker="o", color="k", markerfacecolor="k", label="lfc")
     skew.plot(lcl_p, lcl_t, "ko", markerfacecolor="white", label="lcl")
+
+    temp_temp_array = [32, 38]
+    temp_pressure_array = [lcl_p.m, lcl_p.m]
+    
+    skew.plot(temp_pressure_array, temp_temp_array, "g", label="LCL")
+    
+    test= ((2 * (raw_pressure[0].m - lcl_p.m))/np.sqrt(2)) + lcl_t.m
+    print(f"LCL_p: {lcl_p}.m, sfc_pressure: {raw_pressure[0].m}, LCL_t: {lcl_t.m}")
+    test_2 = 0.006 * test
+    print(f"test: {test_2}")
+    skew.ax.text(test_2, 0.5, "WTF", weight="bold", fontsize=20)
 
     #Calculate and plot parcel path, need to convert to C!
     parcel_path = mpcalc.parcel_profile(raw_pressure, raw_temperatrue[0], raw_dewpoint[0]).to('degC')
@@ -291,13 +302,13 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     #Why the ".m"?
     hodo.ax.text((RM[0].m + 0.5), (RM[1].m + 0.5), "RM", weight="bold", ha="left", fontsize=10, alpha=0.6, color="red")
     hodo.ax.text((LM[0].m + 0.5), (LM[1].m + 0.5), "LM", weight="bold", ha="left", fontsize=10, alpha=0.6, color="blue")
-    hodo.ax.text((MW[0].m + 0.5), (LM[1].m + 0.5), "MW", weight="bold", ha="left", fontsize=10, alpha=0.6, color="black")
-
+    hodo.ax.text((MW[0].m + 0.5), (MW[1].m + 0.5), "MW", weight="bold", ha="left", fontsize=10, alpha=0.6, color="black")
 
     #plots RM, LM, MW as a point in the hodo
     #Since hodo.plot takes in an array of values you cannot actually plot one point
     #So you add a little bit to each vector to create an array
     #Instead of a point, you are plotting a very small line segment
+    #Make sure around any ordered pair "[]" is used and NOT "{}", {} defines a set, not ordered pair
     RMx = [RM[0].m, RM[0].m + 0.1]
     RMy = [RM[1].m, RM[1].m + 0.1]
     hodo.plot(RMx, RMy, color="red")
@@ -311,6 +322,18 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     MWx = [MW[0].m, MW[0].m + 0.1]
     MWy = [MW[1].m, MW[1].m + 0.1]
     hodo.plot(MWx, MWy, color="black")    
+
+    #get X and Y components for a vector going from the sfc to RM 
+    sfc_to_RM_XVector = [raw_Xcomponent_windspeed[0].m, RM[0].m]
+    sfc_to_RM_YVector = [raw_Ycomponent_winderspeed[0].m, RM[1].m]
+
+    #Plot sfc to RM vector
+    hodo.plot(sfc_to_RM_XVector, sfc_to_RM_YVector, color="k", linewidth=0.5)
+
+    print(raw_pressure.shape[0])
+
+
+
 
     #Creates a rectangle (anchor point, width, height, ect..)
     #Transform=fig.transFigure indicates that the measurements are relative to fig dimensions
@@ -407,7 +430,7 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
                 color="navy", ha="right")
     plt.figtext(0.73, 0.29, "0-3KM SRH", weight="bold", fontsize=15,
                 color="black", ha="left")
-    plt.figtext(0.88, 0.29, f"{bshear3:.0f~P}", weight="bold", fontsize=15,
+    plt.figtext(0.88, 0.29, f"{total_helicity3:.0f~P}", weight="bold", fontsize=15,
                 color="navy", ha="right")
     plt.figtext(0.73, 0.26, "0-3KM SHEAR: ", weight="bold", fontsize=15,
                 color="black", ha="left")
@@ -432,6 +455,9 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     
     skew.ax.legend(loc="upper left")
     hodo.ax.legend(loc="upper left")
+
+    plt.figtext(0.45, 0.97, f"Sounding for {airport} valid for {valid_Time} z", weight="bold", fontsize=20,
+                color="black", ha="center")
     
 
     #Temp for testing, but stores SkewT images in the runs folder
