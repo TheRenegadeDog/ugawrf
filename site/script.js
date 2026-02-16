@@ -28,7 +28,7 @@ const products = {
     "afwasnow_k": "Accumulated Snowfall (Kuchera)",
     "afwafrz": "Accumulated Freezing Rain",
     "afwaslt": "Accumulated Icefall (Sleet)",
-    "afwa_vis": "Visibility (Miles)",
+    "afwa_vis": "Visibility",
     "4panel_cloudcover": "4-Panel Cloud Cover",
     "cloudcover": "Cloud Cover",
     "temp_850mb": "Temperature (850mb)",
