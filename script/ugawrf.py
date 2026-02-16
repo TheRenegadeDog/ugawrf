@@ -198,11 +198,13 @@ hours = len(times)
 fhour = int(round((forecast_times[-1] - init_dt).total_seconds() / 3600))
 
 run_metadata = {
-    "init_time": str(forecast_times[0]),
+    "init_time": str(init_str),
+    "step_time": str(forecast_times[0]),
     "domain": domain,
     "forecast_hours": (fhour if args.partial else hours),
     "products": list(PRODUCTS.keys()),
-    "in_progress": (True if args.partial else False)
+    "in_progress": (True if args.partial else False),
+    "generation_time": str(dt.datetime.now())
 }
 json_output_path = os.path.join(BASE_OUTPUT, file_path[0], file_path[1], "metadata.json")
 os.makedirs(os.path.dirname(json_output_path), exist_ok=True)
