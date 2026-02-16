@@ -158,15 +158,14 @@ def plot_skewt(data, x_y, timestep, airport, output_path, forecast_times, init_d
 #Init_dt is the datetime objects and init_str is the string version of that object
 #data = qrd file, x_y is the lat/lon for the airport
 #forecast time is an array of dtatetime objects
-def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_dt, init_str, run_time):
+def skewT_tester(data, x_y, timestep, airport, output_path, forecast_times, init_dt, init_str, run_time):
 
     #Defining forecast times:
     #timestep is obtainined through the for-loop in ugawrf
-    valid_Time = forcast_times[timestep]
+    valid_time = forecast_times[timestep]
 
     #inital time - forecast time to get the forecast hour
-    f_Hour = (valid_Time - init_dt)
-    print(f_Hour)
+    f_hour = int(round((valid_time - init_dt).total_seconds() / 3600))
 
     #Obtains variables from the wrfout file
     raw_pressure = getvar(data, "pressure", timeidx = timestep)
@@ -246,9 +245,9 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     skew.plot(temp_pressure_array, temp_temp_array, "g", label="LCL")
     
     test= ((2 * (raw_pressure[0].m - lcl_p.m))/np.sqrt(2)) + lcl_t.m
-    print(f"LCL_p: {lcl_p}.m, sfc_pressure: {raw_pressure[0].m}, LCL_t: {lcl_t.m}")
+    #print(f"LCL_p: {lcl_p}.m, sfc_pressure: {raw_pressure[0].m}, LCL_t: {lcl_t.m}")
     test_2 = 0.006 * test
-    print(f"test: {test_2}")
+    #print(f"test: {test_2}")
     skew.ax.text(test_2, 0.5, "WTF", weight="bold", fontsize=20)
 
     #Calculate and plot parcel path, need to convert to C!
@@ -329,11 +328,6 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
 
     #Plot sfc to RM vector
     hodo.plot(sfc_to_RM_XVector, sfc_to_RM_YVector, color="k", linewidth=0.5)
-
-    print(raw_pressure.shape[0])
-
-
-
 
     #Creates a rectangle (anchor point, width, height, ect..)
     #Transform=fig.transFigure indicates that the measurements are relative to fig dimensions
@@ -456,13 +450,15 @@ def skewT_tester(data, x_y, timestep, airport, output_path, forcast_times, init_
     skew.ax.legend(loc="upper left")
     hodo.ax.legend(loc="upper left")
 
-    plt.figtext(0.45, 0.97, f"Sounding for {airport} valid for {valid_Time} z", weight="bold", fontsize=20,
-                color="black", ha="center")
+    fig.suptitle(f"Upper Air Data for {airport.upper()} - Hour {f_hour}\nValid: {str(valid_time)} - Init: {init_str}", x=0.35, ha="center", va="top", weight="bold", fontsize=16)
     
 
     #Temp for testing, but stores SkewT images in the runs folder
-    file_name = f"{airport}_{f_Hour}.png"
-    print(file_name)
+    #file_name = f"{airport}_{f_hour}.png"
+    #print(file_name)
     #Replace ":" since windows doesnt support that character in file naming
-    plt.savefig(os.path.join("./site/runs/", str(file_name).replace(":", "_"))) 
+    #plt.savefig(os.path.join("./site/runs/", str(file_name).replace(":", "_"))) 
+
+    os.makedirs(output_path, exist_ok=True)
+    plt.savefig(os.path.join(output_path, f"hour_{f_hour}.png"))
 
