@@ -339,7 +339,7 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         td_500mb = interplevel(td, pressure, 500)
         data_copy = ((tc_850mb)-(tc_500mb))+(td_850mb)-((tc_700mb)-(td_500mb))
         label = f'K Index (°C)'
-        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap='magma_r', levels=np.arange(0,35,2), extend="max")
+        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap='magma_r', levels=np.arange(20,40,1), extend="max")
         plot_title = f"K Index (°C) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
     elif product == 'total_totals':
         if not partial_bool and not process_all:

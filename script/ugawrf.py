@@ -302,7 +302,7 @@ if "skewt" in modules_enabled:
                 skewt.plot_skewt(wrf_file, x_y, t, airport, output_path, forecast_times, init_dt, init_str, file_path)
             print(f"processed {airport} skewt in {dt.datetime.now() - skewt_time}")
         except Exception as e:
-            print(f"error processing {airport} upper air plot: {e}!")
+           print(f"error processing {airport} upper air plot: {e}!")
     print(f"skewt processed successfully - took {dt.datetime.now() - skewt_plot_time}")
 
 # model stats
