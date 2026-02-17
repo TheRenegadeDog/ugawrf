@@ -14,7 +14,9 @@ import numpy as np
 import datetime as dt
 from adjustText import adjust_text
 
-def plot_skewt(data, x_y, timestep, airport, output_path, forecast_times, init_dt, init_str, run_time):
+
+def plot_skewt_dep(data, x_y, timestep, airport, output_path, forecast_times, init_dt, init_str, run_time):
+    # old skewt code, to be removed in future push
     valid_time = forecast_times[timestep]
     f_hour = int(round((valid_time - init_dt).total_seconds() / 3600))
     valid_time_str = valid_time.strftime("%Y-%m-%d %H:%M UTC")
@@ -123,8 +125,6 @@ def plot_skewt(data, x_y, timestep, airport, output_path, forecast_times, init_d
     os.makedirs(output_path, exist_ok=True)
     plt.savefig(os.path.join(output_path, f"hour_{f_hour}.png"), bbox_inches='tight')
     plt.close()
-
-    #hodograph png
     fig_hod = plt.figure(figsize=(6, 6))
     ax_hod = fig_hod.add_subplot(1, 1, 1)
     h2 = Hodograph(ax_hod, component_range=80.)
@@ -155,3 +155,305 @@ def plot_skewt(data, x_y, timestep, airport, output_path, forecast_times, init_d
     fig_hod.savefig(
     os.path.join(output_path, f"hodograph_hour_{f_hour}.png"),bbox_inches='tight')
     plt.close(fig_hod)
+
+#Init_dt is the datetime objects and init_str is the string version of that object
+#data = qrd file, x_y is the lat/lon for the airport
+#forecast time is an array of dtatetime objects
+def plot_skewt(data, x_y, timestep, airport, output_path, forecast_times, init_dt, init_str, run_time):
+
+    #Defining forecast times:
+    #timestep is obtainined through the for-loop in ugawrf
+    valid_time = forecast_times[timestep]
+
+    #inital time - forecast time to get the forecast hour
+    f_hour = int(round((valid_time - init_dt).total_seconds() / 3600))
+
+    #Obtains variables from the wrfout file
+    raw_pressure = getvar(data, "pressure", timeidx = timestep)
+    raw_temperatrue = getvar(data, "tc", timeidx = timestep)
+    raw_dewpoint = getvar(data, "td", timeidx = timestep)
+    raw_Xcomponent_windspeed = getvar(data, "ua", timeidx = timestep)
+    raw_Ycomponent_winderspeed = getvar(data, "va", timeidx = timestep)
+    raw_height = getvar(data, "z",timeidx = timestep)
+
+    #What exactly does ":, x_y[0], x_y[1]" mean? 
+    #Extract data (w.r.t to height) at a particular location + specifiy units 
+    raw_pressure = raw_pressure[:, x_y[0], x_y[1]] * units.hPa
+    raw_temperatrue = raw_temperatrue[:, x_y[0], x_y[1]] * units.degC
+    raw_dewpoint = raw_dewpoint[:, x_y[0], x_y[1]] * units.degC
+    raw_Xcomponent_windspeed = raw_Xcomponent_windspeed[:, x_y[0], x_y[1]] * units.knots
+    raw_Ycomponent_winderspeed = raw_Ycomponent_winderspeed[:, x_y[0], x_y[1]] * units.knots
+    raw_height = raw_height[:, x_y[0], x_y[1]] * units.meters
+
+    #Reassigns the data into a unit array
+    raw_pressure = raw_pressure.metpy.unit_array
+    raw_temperatrue = raw_temperatrue.metpy.unit_array
+    raw_dewpoint = raw_dewpoint.metpy.unit_array
+    raw_Xcomponent_windspeed = raw_Xcomponent_windspeed.metpy.unit_array
+    raw_Ycomponent_winderspeed = raw_Ycomponent_winderspeed.metpy.unit_array
+    raw_height = raw_height.metpy.unit_array
+
+    
+    fig = plt.figure(figsize=(18, 12)) #Create a fig with certain size
+    skew = SkewT(fig, rect=(0.05, 0.05, 0.5, 0.90)) #Create skewT with that fig and set the skewT bounds
+
+    #Axises limits
+    skew.ax.set_ylim(1000, 100) 
+    skew.ax.set_xlim(-35, 45)
+
+    #Label axis
+    skew.ax.set_xlabel(str.upper("Temperature (°C)"), weight="bold")
+    skew.ax.set_ylabel(str.upper("Pressure (hPa)"), weight="bold")
+
+    #Set the background of the Skew T and figure to white
+    fig.set_facecolor("#ffffff")
+    skew.ax.set_facecolor("#ffffff")
+
+    #Plot fundamental background lines
+    #alpha: transparency of line, and lw: linewidth
+    skew.plot_dry_adiabats(color="red", alpha=0.3, lw=1)
+    skew.plot_moist_adiabats(color="blue", alpha=0.3, lw=1)
+    skew.plot_mixing_lines(color="green", alpha=0.3, lw=1)
+    skew.ax.axvline(0, linestyle="--", color="blue", alpha=0.5, label="0C isotherm") #Bold 0C isotherm
+   
+    #Plot the variables we derived from WRF, second parameter is color
+    #Think of it as plotting temp/dew/ect w.r.t pressure
+    skew.plot(raw_pressure, raw_temperatrue, "r", lw=4, label="Temperature")
+    skew.plot(raw_pressure, raw_dewpoint, "g", lw=4, label="Dewpoint")
+
+    #plot windbarbs
+    #creates an log spaced array where each element is log-spaced; convert to hPa 
+    interval = np.logspace(2, 3, 40) * units.hPa  #Why does it start at 2 and end at 3?
+    #Retrieves the indicies from the data array that are closest to the indicies in the interval array
+    idx = mpcalc.resample_nn_1d(raw_pressure, interval) 
+    #inputs the necessary variables at the refined indicies defined above
+    skew.plot_barbs(pressure=raw_pressure[idx], u=raw_Xcomponent_windspeed[idx], v=raw_Ycomponent_winderspeed[idx])
+
+
+    #Calculate temperature and pressure at the LFC + LCL height
+    lfc_p, lfc_t = mpcalc.lfc(raw_pressure, raw_temperatrue, raw_dewpoint)
+    lcl_p, lcl_t = mpcalc.lcl(raw_pressure[0], raw_temperatrue[0], raw_dewpoint[0])
+
+    #LFC will return nan if there is no LFC, from a meteologoical stand point
+    #Marker: shape that will indicate the LCL/LFC, color: circle outline color
+    #Markerfacecolor: color of inside the shape, in this case circle
+    skew.plot(lfc_p, lfc_t, marker="o", color="k", markerfacecolor="k", label="lfc")
+    skew.plot(lcl_p, lcl_t, "ko", markerfacecolor="white", label="lcl")
+
+    temp_temp_array = [32, 38]
+    temp_pressure_array = [lcl_p.m, lcl_p.m]
+    
+    skew.plot(temp_pressure_array, temp_temp_array, "black", label="LCL")
+    
+    test= ((2 * (raw_pressure[0].m - lcl_p.m))/np.sqrt(2)) + lcl_t.m
+    #print(f"LCL_p: {lcl_p}.m, sfc_pressure: {raw_pressure[0].m}, LCL_t: {lcl_t.m}")
+    test_2 = 0.006 * test
+    #print(f"test: {test_2}")
+    skew.ax.text(test_2, 0.5, "lcl if it actually worked", weight="bold", fontsize=20)
+
+    #Calculate and plot parcel path, need to convert to C!
+    parcel_path = mpcalc.parcel_profile(raw_pressure, raw_temperatrue[0], raw_dewpoint[0]).to('degC')
+    skew.plot(raw_pressure, parcel_path, color="black", lw=2, label="Parcel path") #ls: linestyle, "--": dotted
+
+    #Calculate cape then shade the cape/cin regions
+    skew.shade_cin(raw_pressure, raw_temperatrue, parcel_path, raw_dewpoint, alpha = 0.2, label="CAPE")
+    skew.shade_cape(raw_pressure, raw_temperatrue, parcel_path, alpha = 0.2, label="CIN")
+
+    #Plotting a hodograph; rect tuple defines the shape and position on fig
+    hodo_ax = plt.axes((0.48, 0.45, 0.5, 0.5))
+    #compnent_range = tells you the range, in this case [-80kts to 80kts]
+    hodo = Hodograph(hodo_ax, component_range=80) 
+
+    #Adds polar grids (circles) on the hodo
+    hodo.add_grid(increment=20, ls="-", lw=1.5, alpha=0.5) #Darker circles every 20kts
+    hodo.add_grid(increment=10, ls="--", lw=1, alpha=0.3) #lighter cirlles every 10kts
+
+    hodo.ax.set_box_aspect(1) #Set height to width ratio of the hodograph box
+    #Remove any ticks along the y and x axis
+    hodo.ax.set_yticklabels([])
+    hodo.ax.set_xticklabels([])
+    hodo.ax.set_xticks([])
+    hodo.ax.set_yticks([])
+    #Remove any labels alon the x and y axis
+    hodo.ax.set_xlabel(" ")
+    hodo.ax.set_ylabel(" ")
+    
+    #plt.xticks((np.arange(0, 0, 1)))
+    #plt.yticks((np.arange(0, 0, 1)))
+
+    #Plots the scale on the x and y axis
+    for i in range(10, 90, 10):
+        #Adds scale to x axis (i,0); xytest/textcoords offsets the labels up by just a little to make it look nicer
+        #clip_on removes any labels that go outside the hodograph fig
+        hodo.ax.annotate(str(i), (i, 0), xytext=(0,2), textcoords="offset pixels", clip_on=True, 
+                         fontsize=10, weight="bold", alpha=0.3)
+        #Label y axis
+        hodo.ax.annotate(str(i), (0, i), xytext=(2,0), textcoords="offset pixels", clip_on=True, 
+                         fontsize=10, weight="bold", alpha=0.3)
+
+    #plot u and v components on the hodo; third parameter, pressure, is needed to determine the color intervals
+    hodo.plot_colormapped(raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, raw_pressure, lw=3, label="0-12KM WIND")
+
+    #Calculate the right mover, left mover, and mean wind vectors
+    RM, LM, MW = mpcalc.bunkers_storm_motion(raw_pressure, raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, raw_height)
+
+    #Plots RM, LW, and MW on the hodo
+    #Add 0.5 to each coord since the text covers up the actual point, will add a dot at each actual coord to make it clear
+    #Why the ".m"?
+    hodo.ax.text((RM[0].m + 0.5), (RM[1].m + 0.5), "RM", weight="bold", ha="left", fontsize=10, alpha=0.6, color="red")
+    hodo.ax.text((LM[0].m + 0.5), (LM[1].m + 0.5), "LM", weight="bold", ha="left", fontsize=10, alpha=0.6, color="blue")
+    hodo.ax.text((MW[0].m + 0.5), (MW[1].m + 0.5), "MW", weight="bold", ha="left", fontsize=10, alpha=0.6, color="black")
+
+    #plots RM, LM, MW as a point in the hodo
+    #Since hodo.plot takes in an array of values you cannot actually plot one point
+    #So you add a little bit to each vector to create an array
+    #Instead of a point, you are plotting a very small line segment
+    #Make sure around any ordered pair "[]" is used and NOT "{}", {} defines a set, not ordered pair
+    RMx = [RM[0].m, RM[0].m + 0.1]
+    RMy = [RM[1].m, RM[1].m + 0.1]
+    hodo.plot(RMx, RMy, color="red")
+
+    #Left mover
+    LMx = [LM[0].m, LM[0].m + 0.1]
+    LMy = [LM[1].m, LM[1].m + 0.1]
+    hodo.plot(LMx, LMy, color="blue")
+
+    #Mean wind
+    MWx = [MW[0].m, MW[0].m + 0.1]
+    MWy = [MW[1].m, MW[1].m + 0.1]
+    hodo.plot(MWx, MWy, color="black")    
+
+    #get X and Y components for a vector going from the sfc to RM 
+    sfc_to_RM_XVector = [raw_Xcomponent_windspeed[0].m, RM[0].m]
+    sfc_to_RM_YVector = [raw_Ycomponent_winderspeed[0].m, RM[1].m]
+
+    #Plot sfc to RM vector
+    hodo.plot(sfc_to_RM_XVector, sfc_to_RM_YVector, color="k", linewidth=0.5)
+
+    #Creates a rectangle (anchor point, width, height, ect..)
+    #Transform=fig.transFigure indicates that the measurements are relative to fig dimensions
+    #patches.extend adds the new rectangle to the list of shapes on the fig
+    fig.patches.extend([plt.Rectangle((0.562, 0.05), 0.334, 0.37, edgecolor="black", facecolor="white", 
+                                      linewidth=1, alpha=1, transform=fig.transFigure, figure=fig)])
+    
+    #Calculate kindex and totals totals
+    kindex = mpcalc.k_index(raw_pressure, raw_temperatrue, raw_dewpoint)
+    totals_totals = mpcalc.total_totals_index(raw_pressure, raw_temperatrue, raw_dewpoint)
+
+    #Calculate the mixed layer and most unstable cape and cin
+    mlcape, mlcin = mpcalc.mixed_layer_cape_cin(raw_pressure, raw_temperatrue, raw_dewpoint)
+    mucape, mucin = mpcalc.most_unstable_cape_cin(raw_pressure, raw_temperatrue, raw_dewpoint, depth=50 * units.hPa)
+    sbcape, sbcin = mpcalc.surface_based_cape_cin(raw_pressure, raw_temperatrue, raw_dewpoint)
+
+    #obtains all pressure and temperature values from the data set
+    #that are at or below lcl pressure level
+    new_lcl_p = np.append(raw_pressure[raw_pressure > lcl_p], lcl_p)
+    new_lcl_t = np.append(raw_temperatrue[raw_pressure > lcl_p], lcl_t)
+
+    #estaimte the lcl height using hypsometric equation
+    lcl_height = mpcalc.thickness_hydrostatic(new_lcl_p, new_lcl_t)
+
+    #Compute SRH at 1, 3, and 6km, the depth is the how high in the atmopshere SRH is computed
+    Pos_helicity1, neg_helicity1, total_helicity1 = mpcalc.storm_relative_helicity(raw_height,
+                                raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, depth=1 * units.km)
+    Pos_helicity3, neg_helicity3, total_helicity3 = mpcalc.storm_relative_helicity(raw_height,
+                                raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, depth=3 * units.km)
+    Pos_helicity6, neg_helicity6, total_helicity6 = mpcalc.storm_relative_helicity(raw_height,
+                                raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed, depth=6 * units.km)
+    
+    #Calculate bulk shear from sfc to 1, 3, 6km
+    #Since the output is u and v components, need to calculate magnitude
+    ubshear1, vbshear1 = mpcalc.bulk_shear(raw_pressure, raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed,
+                                raw_height, depth=1 * units.km)
+    bshear1 = mpcalc.wind_speed(ubshear1, vbshear1)
+    ubshear3, vbshear3 = mpcalc.bulk_shear(raw_pressure, raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed,
+                                raw_height, depth=3 * units.km)
+    bshear3 = mpcalc.wind_speed(ubshear3, vbshear3)
+    ubshear6, vbshear6 = mpcalc.bulk_shear(raw_pressure, raw_Xcomponent_windspeed, raw_Ycomponent_winderspeed,
+                                raw_height, depth=6 * units.km)
+    bshear6 = mpcalc.wind_speed(ubshear6, vbshear6)    
+
+    STP = mpcalc.significant_tornado(sbcape, lcl_height, total_helicity3,
+                                     bshear3).to_base_units()
+    SCP = mpcalc.supercell_composite(mucape, total_helicity3, bshear3)
+
+    #plots parameters on the bottom right of the sounding
+    #":0.f" rounds to the nearest whole number
+    # "~P" abbreviates units
+    #Therodynamic parameters
+    plt.figtext(0.58, 0.37, "SBCAPE: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.37, f"{sbcape:.0f~P}", weight="bold", fontsize=15,
+                color="orangered", ha="right")
+    plt.figtext(0.58, 0.34, "SBCIN: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.34, f"{sbcin:.0f~P}", weight="bold", fontsize=15,
+                color="lightblue", ha="right")
+    plt.figtext(0.58, 0.29, "MLCAPE: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.29, f"{mlcape:.0f~P}", weight="bold", fontsize=15,
+                color="orangered", ha="right")
+    plt.figtext(0.58, 0.26, "MLCIN: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.26, f"{mlcin:.0f~P}", weight="bold", fontsize=15,
+                color="lightblue", ha="right")
+    plt.figtext(0.58, 0.21, "MUCAPE: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.21, f"{mucape:.0f~P}", weight="bold", fontsize=15,
+                color="orangered", ha="right")
+    plt.figtext(0.58, 0.18, "MUCIN: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.18, f"{mucin:.0f~P}", weight="bold", fontsize=15,
+                color="lightblue", ha="right")
+    plt.figtext(0.58, 0.13, "TT-INDEX: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.13, f"{totals_totals:.0f~P}", weight="bold", fontsize=15,
+                  color="orangered", ha="right")
+    plt.figtext(0.58, 0.10, "K-INDEX: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.71, 0.10, f"{kindex:.0f~P}", weight="bold", fontsize=15,
+                color="orangered", ha="right")
+
+    #Kinematic parameters
+    plt.figtext(0.73, 0.37, "0-1KM SRH: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.37, f"{total_helicity1:.0f~P}", weight="bold", fontsize=15,
+                color="navy", ha="right")
+    plt.figtext(0.73, 0.34, "0-1KM SHEAR: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.34, f"{bshear1:.0f~P}", weight="bold", fontsize=15,
+                color="navy", ha="right")
+    plt.figtext(0.73, 0.29, "0-3KM SRH", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.29, f"{total_helicity3:.0f~P}", weight="bold", fontsize=15,
+                color="navy", ha="right")
+    plt.figtext(0.73, 0.26, "0-3KM SHEAR: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.26, f"{bshear3:.0f~P}", weight="bold", fontsize=15, 
+                color="navy", ha="right")
+    plt.figtext(0.73, 0.21, "0-6KM SRH: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.21, f"{total_helicity6:.0f~P}", weight="bold", fontsize=15, 
+                color="navy", ha='right')
+    plt.figtext(0.73, 0.18, "0-6KM SHEAR: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.18, f"{bshear6:.0f~P}", weight="bold", fontsize=15,
+                color="navy", ha="right")
+    plt.figtext(0.73, 0.13, "SIG TOR: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.13, f"{STP[0]:.0f~P}", weight="bold", fontsize=15,
+                color="orangered", ha="right")
+    plt.figtext(0.73, 0.1, "SCP: ", weight="bold", fontsize=15,
+                color="black", ha="left")
+    plt.figtext(0.88, 0.1, f"{SCP[0]:.0f~P}", weight="bold", fontsize=15,
+                color="orangered", ha="right")
+    
+    skew.ax.legend(loc="upper left")
+    hodo.ax.legend(loc="upper left")
+
+    fig.suptitle(f"Upper Air Data for {airport.upper()} - Hour {f_hour}\nValid: {str(valid_time)} - Init: {init_str}", x=0.3, ha="center", va="top", weight="bold", fontsize=16)
+
+    os.makedirs(output_path, exist_ok=True)
+    plt.savefig(os.path.join(output_path, f"hour_{f_hour}.png"))
+    plt.close()
+    print(f'-> {airport} skewt hr {f_hour}')
