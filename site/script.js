@@ -27,7 +27,7 @@ const products = {
     "afwasnow": "Accumulated Snowfall (10:1)",
     "afwafrz": "Accumulated Freezing Rain",
     "afwaslt": "Accumulated Sleet",
-    "afwa_vis": "Visibility",
+    "visby": "Visibility",
     "4panel_cloudcover": "4-Panel Cloud Cover",
     "cloudcover": "Cloud Cover",
     "temp_850mb": "Temperature (850mb)",

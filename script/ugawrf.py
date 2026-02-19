@@ -130,7 +130,7 @@ PRODUCTS = {
     "cloudcover": "cloudfrac",
     #"echo_tops": "ECHOTOP",
     "apparent_temperature": "T2",
-    "afwa_visibility": "afwa_vis",
+    "visby": "AFWA_VIS",
 
     # upper level vars are very taxing to process: feel free to comment some/all of them out while you're working locally!
     "temp_925mb": "tc",

@@ -211,16 +211,16 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap=get_truncated_cmap('Oranges', min_val=0.2), levels=np.arange(0, 3, 0.1), extend='max')
         plot_title = f"Total Ice Pellets (in) (liquid equiv.) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f"Ice Pellets (in)"
-    elif product == 'afwa_vis':
+    elif product == 'visby':
         if not partial_bool and not process_all:
             print(f'-> skipping {product} {timestep} due to partial flag being disabled')
             plt.close(fig)
             return
         data_copy = data_copy
-        afwa_vis = getvar(wrf_file, 'afwa_vis', timeidx=timestep)
+        afwa_vis = getvar(wrf_file, 'AFWA_VIS', timeidx=timestep)
         contour = ax.contourf(to_np(lons), to_np(lats), afwa_vis, levels=np.arange(0,10,0.1), cmap="Greys", transform=ccrs.PlateCarree())
-        plot_title = f"Total Visibility (km){f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
-        label = f"Visibility (km)"
+        plot_title = f"Total Visibility (mi){f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
+        label = f"Visibility (mi)"
     elif product == '1hr_precip':
         if partial_bool is True:
             print(f'-> skipping {product} {timestep} due to partial flag being enabled')
@@ -358,13 +358,11 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         tc_850mb = interplevel(tc, pressure, 850)
         tc_500mb = interplevel(tc, pressure, 500)
         td_850mb = interplevel(td, pressure, 850)
-        data_copy = (tc_850mb - tc_500mb)
-        VT = data_copy
-        data_copy = (td_850mb - tc_500mb)
-        CT = data_copy
+        VT = tc_850mb - tc_500mb
+        CT = td_850mb - tc_500mb
         data_copy = VT + CT
         label = f'Total Totals (°C)'
-        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap='magma_r', levels=np.arange(30,60,2), extend="max")
+        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap='magma_r', levels=np.arange(45,60,2), extend="max")
         plot_title = f"Total Totals (°C) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
     elif product.startswith("temp") and level != None:
         if not partial_bool and not process_all:
