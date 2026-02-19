@@ -158,6 +158,7 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
                               extend='max')
         plot_title = f"Total Precipitation (in) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f"Precipitation (in)"
+        ticks = [0.0,0.01,0.1,0.25,0.5,0.75,1,1.25,1.50,1.75,2,2.5,3,4,5,7,10,15,20]
     elif product == 'afwarain':
         if not partial_bool and not process_all:
             print(f'-> skipping {product} {timestep} due to partial flag being disabled')
@@ -225,6 +226,7 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
                               extend='max')
         plot_title = f"1 Hour Precipitation (in) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f'1 Hour Rainfall (in)'
+        ticks = [0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
     elif product == 'snowfall':
         if not partial_bool and not process_all:
             print(f'-> skipping {product} {timestep} due to partial flag being disabled')
@@ -537,6 +539,8 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         label = f"{data.description}"
     if product != ("ptype"):
         cbar = fig.colorbar(contour, ax=ax, location="right", fraction=0.035, pad=0.02, shrink=0.85, aspect=25)
+        if product == 'total_precip' or product == '1hr_precip':
+            cbar.ax.set_yticks(ticks, labels=ticks)
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
     gl.top_labels = False; gl.right_labels = False
     ax.coastlines()
