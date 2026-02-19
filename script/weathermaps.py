@@ -153,7 +153,10 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
             return
         data_copy = data_copy / 25.4
         precip_cmap = ctables.registry.get_colortable('precipitation')
-        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap=precip_cmap, levels=np.arange(0, 20, 0.25), extend='max')
+        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), 
+                              colors=['white','lime','lawngreen','green','darkblue','blue','cyan','darkorchid','blueviolet','darkmagenta','maroon','firebrick','orangered','orange','goldenrod','gold','yellow','salmon'], 
+                              levels=[0.0,0.01,0.1,0.25,0.5,0.75,1,1.25,1.50,1.75,2,2.5,3,4,5,7,10,15,20],
+                              extend='max')
         plot_title = f"Total Precipitation (in) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f"Precipitation (in)"
     elif product == 'afwarain':
@@ -217,8 +220,10 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         rain_prev = getvar(wrf_file, "AFWA_TOTPRECIP", timeidx=timestep - 1) if timestep > 0 else rain_now * 0
         precip_1hr = (rain_now - rain_prev) / 25.4
         data_copy = precip_1hr.copy()
-        precip_cmap = ctables.registry.get_colortable('precipitation')
-        contour = ax.contourf(to_np(lons), to_np(lats), to_np(precip_1hr), cmap=precip_cmap, levels=np.arange(0, 5, 0.1), extend='max')
+        contour = ax.contourf(to_np(lons), to_np(lats), to_np(precip_1hr), 
+                              colors=['white','palegreen','limegreen','green','yellow','gold','orange','red','firebrick','darkred','magenta','darkviolet','black',],
+                              levels=[0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0],
+                              extend='max')
         plot_title = f"1 Hour Precipitation (in) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f'1 Hour Rainfall (in)'
     elif product == 'snowfall':

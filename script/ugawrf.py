@@ -38,7 +38,7 @@ except:
 # use run flags, arg3 to specify if you want to disable a certain product or not. This is useful for debugging/concurrent running.
 # 1 - textgen
 # 2 - weathermaps
-# 3 - special
+# 3 - special (one off plots or plots with special code requirements like 4-panel cloud cover or 24-hour change)
 # 4 - meteogram
 # 5 - skewt
 # 6 - modelstats (reports hourly outputs at specified airports into a CSV file for easy verification testing)
@@ -48,7 +48,6 @@ run_flags = args.run_flags
 
 
 # processing modules - located in the same folder as (module).py
-# if you want to skip generating a certain product, just comment out the module
 modules_enabled = []
 if "1" not in run_flags:
     import textgen
