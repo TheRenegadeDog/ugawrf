@@ -152,10 +152,13 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
             plt.close(fig)
             return
         data_copy = data_copy / 25.4
-        precip_cmap = ctables.registry.get_colortable('precipitation')
-        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), cmap=precip_cmap, levels=np.arange(0, 20, 0.25), extend='max')
+        contour = ax.contourf(to_np(lons), to_np(lats), to_np(data_copy), 
+                              colors=['white','lime','lawngreen','green','darkblue','blue','cyan','darkorchid','blueviolet','darkmagenta','maroon','firebrick','orangered','orange','goldenrod','gold','yellow','salmon'],
+                              levels=[0.0,0.01,0.1,0.25,0.5,0.75,1,1.25,1.50,1.75,2,2.5,3,4,5,7,10,15,20],
+                              extend='max')
         plot_title = f"Total Precipitation (in) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f"Precipitation (in)"
+        ticks = [0.0,0.01,0.1,0.25,0.5,0.75,1,1.25,1.50,1.75,2,2.5,3,4,5,7,10,15,20]
     elif product == 'afwarain':
         if not partial_bool and not process_all:
             print(f'-> skipping {product} {timestep} due to partial flag being disabled')
@@ -218,6 +221,8 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         contour = ax.contourf(to_np(lons), to_np(lats), afwa_vis, levels=np.arange(0,10,0.1), cmap="Greys", transform=ccrs.PlateCarree())
         plot_title = f"Total Visibility (km){f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f"Visibility (km)"
+        plot_title = f"Total Ice Pellets (in) (liquid equiv.) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
+        label = f"Ice Pellets (in)"
     elif product == '1hr_precip':
         if partial_bool is True:
             print(f'-> skipping {product} {timestep} due to partial flag being enabled')
@@ -227,10 +232,13 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         rain_prev = getvar(wrf_file, "AFWA_TOTPRECIP", timeidx=timestep - 1) if timestep > 0 else rain_now * 0
         precip_1hr = (rain_now - rain_prev) / 25.4
         data_copy = precip_1hr.copy()
-        precip_cmap = ctables.registry.get_colortable('precipitation')
-        contour = ax.contourf(to_np(lons), to_np(lats), to_np(precip_1hr), cmap=precip_cmap, levels=np.arange(0, 5, 0.1), extend='max')
+        contour = ax.contourf(to_np(lons), to_np(lats), to_np(precip_1hr), 
+                              colors=['white','palegreen','limegreen','green','yellow','gold','orange','red','firebrick','darkred','magenta','darkviolet','black',],
+                              levels=[0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0],
+                              extend='max')
         plot_title = f"1 Hour Precipitation (in) - Hour {f_hour}\nValid: {valid_time_str}\nInit: {init_str}"
         label = f'1 Hour Rainfall (in)'
+        ticks = [0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
     elif product == 'snowfall':
         if not partial_bool and not process_all:
             print(f'-> skipping {product} {timestep} due to partial flag being disabled')
@@ -561,6 +569,8 @@ def plot_variable(product, variable, timestep, output_path, forecast_times, airp
         label = f"{data.description}"
     if product != ("ptype"):
         cbar = fig.colorbar(contour, ax=ax, location="right", fraction=0.035, pad=0.02, shrink=0.85, aspect=25)
+        if product == 'total_precip' or product == '1hr_precip':
+            cbar.ax.set_yticks(ticks, labels=ticks)
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
     gl.top_labels = False; gl.right_labels = False
     ax.coastlines()
